@@ -12,6 +12,16 @@ public class UserRegisterForm {
     private String email;
     private String introduction;
 
+    public String getFileIntro() {
+        return FileIntro;
+    }
+
+    public void setFileIntro(String fileIntro) {
+        FileIntro = fileIntro;
+    }
+
+    private String FileIntro;
+
     public String getUserName() {
         return userName;
     }

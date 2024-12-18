@@ -17,8 +17,16 @@ public class User {
     private Date birthday;
     private String hobby;
     private String gender;
+    private String fileName;
+    private String fileIntro;
 
+    public String getFileName() {
+        return fileName;
+    }
 
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
 
     public User(Integer id, String name, String password, String type, String email, String intro, Date birthday, String hobby, String gender) {
         this.id = id;

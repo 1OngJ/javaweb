@@ -17,15 +17,18 @@ import top.llong.javawebexp6.form.UserRegisterForm;
 
 import javax.xml.crypto.Data;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.URLDecoder;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.*;
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
 
 @WebServlet("/UserServlet")
 @MultipartConfig
@@ -121,19 +124,27 @@ public class UserServlet extends HttpServlet {
         registerForm.setEmail(request.getParameter("email"));
         registerForm.setIntroduction(request.getParameter("introduction"));
 
-
         Part filePart = request.getPart("file");
-        Part fileintroPart = request.getPart("fileintro");
-        LocalDateTime dateTime = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-mm-yyyy HH：mm：ss");
+        String fileIntro = request.getParameter("fileintro"); // 获取文件简介
 
-        String fileName = dateTime.format(formatter) + '-' + getSubmittedFileName(filePart) + filePart + getSubmittedFileIntro(fileintroPart);
+        LocalDateTime dateTime = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH：mm：ss");
+
+        String fileName = dateTime.format(formatter) + '-' + getSubmittedFileName(filePart);
 
         String originalFileName = fileName; // 保存原始文件名
         String savePath = "";
         if(fileName != null && !fileName.isBlank()){
-            // 获取上传目录的绝对路径
-            String uploadPath = projectSourcePath + File.separator + "src" + File.separator + "main" + File.separator + "webapp" + File.separator + UPLOAD_DIRECTORY;
+            // 获取 ServletContext
+            ServletContext context = getServletContext();
+
+            // 使用相对于 webapp 的相对路径
+            String relativeUploadPath = "upload";
+
+            // 获取 webapp 目录的绝对路径
+            String uploadPath = context.getRealPath(relativeUploadPath);
+
+            System.out.println("uploadPath: "+ uploadPath);
 
             File uploadDir = new File(uploadPath);
             if (!uploadDir.exists()) {
@@ -148,13 +159,31 @@ public class UserServlet extends HttpServlet {
             savePath = UPLOAD_DIRECTORY + File.separator + fileName;
 
             // 获取 ServletContext 中的 fileNamesMap
-            ServletContext context = getServletContext();
+            //  ServletContext context = getServletContext();
             Map<String, String> fileNamesMap = (Map<String, String>) context.getAttribute("fileNamesMap");
 
             // 将 UUID 文件名和原始文件名的对应关系存储到 Map 中
             fileNamesMap.put(fileName, originalFileName);
+
+            // 对文件名进行解码
+            String decodedFileName = URLDecoder.decode(fileName, "UTF-8");
+
+            // 创建 .intro 文件并写入简介
+            String introFilePath = uploadPath + File.separator + decodedFileName + ".intro";
+            Properties prop = new Properties();
+            prop.setProperty("intro", fileIntro);
+            try (FileOutputStream fos = new FileOutputStream(introFilePath)) {
+                prop.store(fos, "File Introduction");
+            } catch (IOException e) {
+                e.printStackTrace();
+                // 处理异常，例如可以跳转到错误页面
+                request.setAttribute("message", "文件简介保存失败！");
+                request.getRequestDispatcher("error.jsp").forward(request, response);
+                return;
+            }
         }
 
+        registerForm.setFileIntro(fileIntro); // 将文件简介设置到 registerForm 中
         int result = userDao.addUser(registerForm, savePath);
         if (result > 0) {
             request.setAttribute("message", "用户添加成功！");
@@ -228,12 +257,5 @@ public class UserServlet extends HttpServlet {
         }
         return null;
     }
-    private static String getSubmittedFileIntro(Part part) {
-        for (String content : part.getHeader("content-disposition").split(";")) {
-            if (content.trim().startsWith("fileintro")) {
-                return content.substring(content.indexOf('=') + 1).trim().replace("\"", "");
-            }
-        }
-        return null;
-    }
+
 }
